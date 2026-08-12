@@ -1,4 +1,4 @@
-name: Daily Price Tracker
+name: Daily Price & Release Tracker
 
 on:
   schedule:
@@ -25,13 +25,16 @@ jobs:
         run: |
           pip install requests beautifulsoup4 2>/dev/null || true
 
-      - name: Run tracker
+      - name: Run price tracker
         run: python tracker.py
 
-      - name: Commit updated prices
+      - name: Run release tracker
+        run: python releases.py
+
+      - name: Commit updated data
         run: |
           git config user.name "price-bot"
           git config user.email "bot@github-actions"
-          git add data/prices.json
-          git diff --staged --quiet || git commit -m "data: price update $(date +%Y-%m-%d)"
+          git add data/prices.json data/releases.json
+          git diff --staged --quiet || git commit -m "data: price + release update $(date +%Y-%m-%d)"
           git push
