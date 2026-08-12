@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>球鞋价格追踪器</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #e5e5e5;
+      min-height: 100vh;
+    }
+    header {
+      padding: 28px 24px 16px;
+      border-bottom: 1px solid #222;
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    header p { color: #666; font-size: 0.85rem; margin-top: 4px; }
+    .badge {
+      display: inline-block;
+      background: #1a1a2e;
+      border: 1px solid #333;
+      color: #7c6af7;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      padding: 24px;
+    }
+    .card {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #7c6af7; }
+    .card.active { border-color: #7c6af7; background: #1a1730; }
+    .card-name { font-size: 0.9rem; font-weight: 600; color: #fff; margin-bottom: 4px; }
+    .card-sku { font-size: 0.75rem; color: #555; margin-bottom: 12px; }
+    .card-price { font-size: 1.8rem; font-weight: 700; color: #7c6af7; }
+    .card-price span { font-size: 1rem; color: #888; }
+    .card-change { font-size: 0.8rem; margin-top: 4px; }
+    .up { color: #f87171; }
+    .down { color: #4ade80; }
+    .flat { color: #888; }
+    .card-date { font-size: 0.72rem; color: #444; margin-top: 6px; }
+
+    .chart-section {
+      padding: 0 24px 24px;
+    }
+    .chart-title {
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 12px;
+    }
+    .chart-wrap {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 20px;
+      height: 300px;
+      position: relative;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 60px 24px;
+      color: #444;
+    }
+    .empty code {
+      background: #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: #7c6af7;
+    }
+
+    footer {
+      padding: 16px 24px;
+      border-top: 1px solid #1a1a1a;
+      font-size: 0.75rem;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>球鞋价格追踪器</h1>
+  <p>Powered by GitHub Actions — runs daily, zero cost</p>
+  <span class="badge" id="update-badge">loading...</span>
+</header>
+
+<div id="app">
+  <div class="empty">
+    <p>正在加载数据...</p>
+    <p style="margin-top:8px;font-size:0.8rem;">
+      如果看到这条，请先运行 <code>python tracker.py</code> 生成数据
+    </p>
+  </div>
+</div>
+
+<script>
+let chartInstance = null;
+let allData = {};
+let activeShoe = null;
+
+const COLORS = ['#7c6af7', '#f59e0b', '#4ade80', '#f87171', '#38bdf8'];
+
+async function loadData() {
+  try {
+    const res = await fetch('data/prices.json');
+    if (!res.ok) throw new Error('no data');
+    allData = await res.json();
+    render();
+  } catch {
+    document.getElementById('app').innerHTML = `
+      <div class="empty">
+        <p style="font-size:1rem;color:#555">暂无数据</p>
+        <p style="margin-top:12px">先运行一次 <code>python tracker.py</code></p>
+        <p style="margin-top:6px;font-size:0.8rem;color:#333">
+          或在 GitHub → Actions → Daily Price Tracker → Run workflow
+        </p>
+      </div>`;
+  }
+}
+
+function getChange(records) {
+  if (records.length < 2) return null;
+  const latest = records[records.length - 1].price;
+  const prev = records[records.length - 2].price;
+  const diff = latest - prev;
+  const pct = ((diff / prev) * 100).toFixed(1);
+  return { diff, pct };
+}
+
+function render() {
+  const names = Object.keys(allData);
+  if (names.length === 0) return;
+
+  // Update badge
+  const allDates = names.flatMap(n => allData[n].records.map(r => r.date));
+  const lastDate = allDates.sort().pop() || '—';
+  document.getElementById('update-badge').textContent = `最后更新: ${lastDate}`;
+
+  // Build cards
+  let cardsHtml = '<div class="cards">';
+  names.forEach((name, i) => {
+    const d = allData[name];
+    const latest = d.records[d.records.length - 1];
+    if (!latest) return;
+    const change = getChange(d.records);
+    let changeHtml = '<span class="flat">—</span>';
+    if (change) {
+      const cls = change.diff > 0 ? 'up' : change.diff < 0 ? 'down' : 'flat';
+      const sign = change.diff > 0 ? '+' : '';
+      changeHtml = `<span class="${cls}">${sign}¥${Math.abs(change.diff).toFixed(0)} (${sign}${change.pct}%)</span>`;
+    }
+    const isActive = (activeShoe === null && i === 0) || activeShoe === name;
+    if (isActive) activeShoe = name;
+    cardsHtml += `
+      <div class="card ${isActive ? 'active' : ''}" onclick="selectShoe('${name.replace(/'/g, "\\'")}')">
+        <div class="card-name">${name}</div>
+        <div class="card-sku">${d.sku || ''}</div>
+        <div class="card-price">¥${Number(latest.price).toLocaleString()}<span> CNY</span></div>
+        <div class="card-change">${changeHtml} 较昨日</div>
+        <div class="card-date">${latest.date} · ${latest.source}</div>
+      </div>`;
+  });
+  cardsHtml += '</div>';
+
+  const chartHtml = `
+    <div class="chart-section">
+      <div class="chart-title">价格走势 — ${activeShoe}</div>
+      <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+    </div>`;
+
+  document.getElementById('app').innerHTML = cardsHtml + chartHtml;
+  drawChart(activeShoe);
+}
+
+function selectShoe(name) {
+  activeShoe = name;
+  render();
+}
+
+function drawChart(name) {
+  const d = allData[name];
+  if (!d || !d.records.length) return;
+
+  const labels = d.records.map(r => r.date);
+  const prices = d.records.map(r => r.price);
+
+  if (chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '价格 (¥)',
+        data: prices,
+        borderColor: '#7c6af7',
+        backgroundColor: 'rgba(124,106,247,0.08)',
+        pointBackgroundColor: '#7c6af7',
+        pointRadius: prices.length > 30 ? 2 : 4,
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `¥${ctx.parsed.y.toLocaleString()}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#555', maxTicksLimit: 8 },
+          grid: { color: '#1e1e1e' }
+        },
+        y: {
+          ticks: {
+            color: '#555',
+            callback: v => '¥' + v.toLocaleString()
+          },
+          grid: { color: '#1e1e1e' }
+        }
+      }
+    }
+  });
+}
+
+loadData();
+</script>
+
+<footer>
+  数据每日自动更新 · GitHub Actions ·
+  <a href="https://github.com/daligao/sneaker-price-tracker" style="color:#444">源码</a>
+</footer>
+
+</body>
+</html>

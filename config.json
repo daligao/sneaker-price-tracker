@@ -1,0 +1,24 @@
+{
+  "sneakers": [
+    {
+      "name": "Nike Air Jordan 1 Retro High OG",
+      "sku": "DZ5485-052",
+      "keywords": "Air Jordan 1 High OG Chicago Lost Found",
+      "size": "US 10"
+    },
+    {
+      "name": "New Balance 990v6 Made in USA",
+      "sku": "M990GL6",
+      "keywords": "New Balance 990v6 Grey",
+      "size": "US 10"
+    },
+    {
+      "name": "Adidas Samba OG",
+      "sku": "B75806",
+      "keywords": "Adidas Samba OG White Black",
+      "size": "US 10"
+    }
+  ],
+  "currency": "CNY",
+  "demo_mode": true
+}

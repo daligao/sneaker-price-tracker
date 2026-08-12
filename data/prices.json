@@ -1,0 +1,35 @@
+{
+  "Nike Air Jordan 1 Retro High OG": {
+    "sku": "DZ5485-052",
+    "records": [
+      {
+        "date": "2026-08-12",
+        "price": 2797.0,
+        "source": "demo",
+        "url": "#"
+      }
+    ]
+  },
+  "New Balance 990v6 Made in USA": {
+    "sku": "M990GL6",
+    "records": [
+      {
+        "date": "2026-08-12",
+        "price": 1799.0,
+        "source": "demo",
+        "url": "#"
+      }
+    ]
+  },
+  "Adidas Samba OG": {
+    "sku": "B75806",
+    "records": [
+      {
+        "date": "2026-08-12",
+        "price": 1193.0,
+        "source": "demo",
+        "url": "#"
+      }
+    ]
+  }
+}
