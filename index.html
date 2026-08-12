@@ -403,7 +403,12 @@ function render() {
         <div class="card-price">¥${Number(latest.price).toLocaleString()}<span> 二手</span></div>
         ${meta.retailPriceCNY ? `<div style="font-size:.75rem;color:#444;margin-top:2px">零售 ¥${meta.retailPriceCNY.toLocaleString()}</div>` : ''}
         <div class="card-meta">${premiumPill}${changePill}</div>
-        <div class="card-date">${latest.date} · ${latest.source}</div>
+        <div class="card-date">
+          ${latest.date}
+          ${latest.source === 'dewu' && latest.url && latest.url !== '#'
+            ? ` · <a href="${latest.url}" target="_blank" style="color:#7c6af7;text-decoration:none">得物查看 →</a>`
+            : ` · ${latest.source}`}
+        </div>
       </div>
     </div>`;
   });

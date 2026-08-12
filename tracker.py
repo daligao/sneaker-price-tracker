@@ -2,11 +2,6 @@
 """
 Sneaker Price Tracker — JJ专属版
 Runs daily via GitHub Actions, saves price history to data/prices.json
-
-Sources (in order of preference):
-  1. 得物 (dewu.com) — China's primary sneaker resale market
-  2. 闲鱼 (xianyu) — secondhand market, real transaction prices
-  3. Demo mode — realistic mock prices for testing
 """
 
 import json
@@ -18,7 +13,6 @@ import time
 
 try:
     import requests
-    from bs4 import BeautifulSoup
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False
@@ -27,10 +21,17 @@ except ImportError:
 DATA_FILE = "data/prices.json"
 CONFIG_FILE = "config.json"
 
+# Dewu H5 API — same endpoint the mobile app uses
+DEWU_SEARCH_API = "https://app.dewu.com/api/v1/h5/search/product/list"
+DEWU_PRODUCT_URL = "https://m.dewu.com/product/{product_id}"
+
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                  "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
+    "Accept": "application/json, text/plain, */*",
     "Accept-Language": "zh-CN,zh;q=0.9",
+    "Referer": "https://m.dewu.com/",
+    "Origin": "https://m.dewu.com",
 }
 
 
@@ -52,124 +53,83 @@ def save_history(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-# ── Demo mode ────────────────────────────────────────────────────────────────
-BASE_PRICES = {
-    "Nike Air Jordan 1 Retro High OG": 2800,
-    "New Balance 990v6 Made in USA": 1800,
-    "Adidas Samba OG": 1200,
-}
-
+# ── Demo mode ─────────────────────────────────────────────────────────────────
 def fetch_demo_price(sneaker):
-    base = BASE_PRICES.get(sneaker["name"], sneaker.get("retailPriceCNY", 1500) * 1.4 or 1500)
+    base = sneaker.get("retailPriceCNY", 0) * 1.5 or 1800
     day = datetime.date.today().timetuple().tm_yday
     trend = base * 0.001 * (day % 30 - 15)
     noise = random.uniform(-0.03, 0.03) * base
-    return {"price": round(base + trend + noise), "source": "demo", "url": "#"}
+    return {"price": int(round(base + trend + noise)), "source": "demo", "url": "#", "product_id": ""}
 
 
-# ── 得物 (Dewu) ───────────────────────────────────────────────────────────────
+# ── 得物 H5 API ───────────────────────────────────────────────────────────────
 def fetch_dewu_price(sneaker):
     """
-    Searches dewu.com (得物) for lowest ask price.
-    Dewu has anti-bot measures; this works in demo GitHub Actions environment
-    but may need a rotating proxy for heavy usage.
+    Calls 得物's internal H5 search API (same one used by m.dewu.com).
+    Returns lowest ask price and direct product link.
 
-    To improve: add your own proxy in the requests.get() call:
-        proxies={"https": "http://YOUR_PROXY:PORT"}
+    sort values: 0=综合  1=价格升序  2=价格降序  4=最新上架
     """
-    if not HAS_REQUESTS:
-        raise RuntimeError("requests not installed")
-
     keywords = sneaker.get("keywords") or sneaker.get("name", "")
-    url = f"https://www.dewu.com/search?keyword={requests.utils.quote(keywords)}"
 
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(r.text, "html.parser")
+    params = {
+        "page": 1,
+        "limit": 5,
+        "keyword": keywords,
+        "sort": 1,          # price ascending → get lowest ask
+        "is_new": 1,        # brand new condition
+    }
 
-        # Dewu renders prices in JSON within a script tag
-        scripts = soup.find_all("script")
-        for script in scripts:
-            text = script.string or ""
-            if "lowestPrice" in text or "lowest_price" in text:
-                # Try to extract price
-                match = re.search(r'"lowestPrice"\s*:\s*"?(\d+\.?\d*)"?', text)
-                if not match:
-                    match = re.search(r'"lowest_price"\s*:\s*"?(\d+\.?\d*)"?', text)
-                if match:
-                    price = float(match.group(1))
-                    return {"price": round(price), "source": "dewu", "url": url}
+    r = requests.get(DEWU_SEARCH_API, params=params, headers=HEADERS, timeout=12)
+    r.raise_for_status()
+    data = r.json()
 
-        # Fallback: look for price in visible elements
-        price_el = soup.select_one(".price, .product-price, [class*=price]")
-        if price_el:
-            text = re.sub(r"[^\d.]", "", price_el.get_text())
-            if text:
-                return {"price": round(float(text)), "source": "dewu", "url": url}
+    # Response structure: {"code":200, "data":{"productList":[{...}]}}
+    products = (
+        data.get("data", {}).get("productList")
+        or data.get("data", {}).get("list")
+        or []
+    )
 
-        raise ValueError("price not found in page")
+    if not products:
+        raise ValueError("empty product list from dewu API")
 
-    except Exception as e:
-        raise RuntimeError(f"dewu fetch failed: {e}")
+    # Pick first result (lowest price due to sort=1)
+    first = products[0]
 
+    # Price field varies by API version
+    price_raw = (
+        first.get("lowestPrice")
+        or first.get("price")
+        or first.get("salePrice")
+        or first.get("lowest_price")
+    )
+    if price_raw is None:
+        raise ValueError(f"no price field in: {list(first.keys())}")
 
-# ── 闲鱼 (Xianyu / Idle Fish) ─────────────────────────────────────────────────
-def fetch_xianyu_price(sneaker):
-    """
-    Searches xianyu.taobao.com for average sold price.
-    Xianyu is Taobao's secondhand platform — real transaction prices.
+    # Price may be in fen (cents) or yuan
+    price = float(str(price_raw).replace(",", ""))
+    if price > 100000:   # likely in fen
+        price = price / 100
 
-    Note: Xianyu requires login for full data. This approach uses the
-    public search page which shows listing prices without login.
-    For actual sold prices, you need Selenium + logged-in session.
+    product_id = str(first.get("productId") or first.get("id") or "")
+    url = DEWU_PRODUCT_URL.format(product_id=product_id) if product_id else "https://m.dewu.com"
 
-    How to add Selenium support:
-        pip install selenium webdriver-manager
-        from selenium.webdriver import Chrome
-        from selenium.webdriver.chrome.options import Options
-        opts = Options(); opts.add_argument("--headless"); opts.add_argument("--no-sandbox")
-        driver = Chrome(options=opts)
-        driver.get("https://www.xianyu.com/...")
-        # Login with cookies saved from your browser session
-    """
-    if not HAS_REQUESTS:
-        raise RuntimeError("requests not installed")
-
-    keywords = sneaker.get("keywords") or sneaker.get("name", "")
-    url = f"https://www.xianyu.com/search-result?q={requests.utils.quote(keywords)}&sortValue=price_asc"
-
-    r = requests.get(url, headers=HEADERS, timeout=10)
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    # Xianyu embeds data in JSON inside script tags
-    for script in soup.find_all("script"):
-        text = script.string or ""
-        prices = re.findall(r'"price"\s*:\s*"?(\d+\.?\d*)"?', text)
-        if prices:
-            nums = sorted([float(p) for p in prices if 100 < float(p) < 50000])
-            if nums:
-                # Use the median to avoid outliers
-                mid = nums[len(nums) // 2]
-                return {"price": round(mid), "source": "xianyu", "url": url}
-
-    raise RuntimeError("xianyu: price not found")
+    return {"price": int(round(price)), "source": "dewu", "url": url, "product_id": product_id}
 
 
-# ── Main fetch with fallback chain ────────────────────────────────────────────
+# ── Main fetch with fallback ───────────────────────────────────────────────────
 def fetch_price(sneaker, demo_mode):
     if demo_mode or not HAS_REQUESTS:
         return fetch_demo_price(sneaker)
 
-    for fetcher, name in [(fetch_dewu_price, "dewu"), (fetch_xianyu_price, "xianyu")]:
-        try:
-            result = fetcher(sneaker)
-            print(f"     [{name}] ¥{result['price']:,}")
-            return result
-        except Exception as e:
-            print(f"     [{name}] failed: {e}")
-
-    print("     [demo] fallback")
-    return fetch_demo_price(sneaker)
+    try:
+        result = fetch_dewu_price(sneaker)
+        print(f"     [得物] ¥{result['price']:,}  {result['url']}")
+        return result
+    except Exception as e:
+        print(f"     [得物] 失败: {e} → 使用demo价格")
+        return fetch_demo_price(sneaker)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -180,34 +140,28 @@ def main():
     demo_mode = config.get("demo_mode", True)
 
     print(f"👟 JJ球鞋价格追踪器 — {today}")
-    print(f"   追踪 {len(config['sneakers'])} 款球鞋 {'(demo模式)' if demo_mode else '(实时抓取)'}")
+    print(f"   追踪 {len(config['sneakers'])} 款  {'demo模式' if demo_mode else '得物实时'}")
     print()
 
     for sneaker in config["sneakers"]:
         name = sneaker["name"]
-        print(f"  → {name[:50]}")
+        print(f"  → {name[:55]}")
 
         result = fetch_price(sneaker, demo_mode)
-        price = result["price"]
 
         if name not in history:
-            history[name] = {
-                "sku": sneaker.get("sku", ""),
-                "brand": sneaker.get("brand", ""),
-                "colorway": sneaker.get("colorway", ""),
-                "records": []
-            }
+            history[name] = {"sku": sneaker.get("sku", ""), "records": []}
 
         existing = [r["date"] for r in history[name]["records"]]
         if today not in existing:
             history[name]["records"].append({
                 "date": today,
-                "price": price,
+                "price": result["price"],
                 "source": result["source"],
-                "url": result.get("url", "")
+                "url": result.get("url", ""),
             })
 
-        time.sleep(0.8)
+        time.sleep(1)
 
     save_history(history)
     print(f"\n✅ 保存到 {DATA_FILE}")
