@@ -1,0 +1,75 @@
+{
+  "updated": "2026-08-13",
+  "releases": [
+    {
+      "id": "demo_1",
+      "name": "Nike Air Max 95 OG Neon",
+      "brand": "Nike",
+      "sku": "AT2865-001",
+      "colorway": "Neon Yellow/Black",
+      "releaseDate": "2026-08-20",
+      "retailPrice": 180,
+      "retailPriceCNY": 1279,
+      "imageUrl": "https://images.stockx.com/images/Nike-Air-Max-95-OG-Neon-Yellow-2020-Product.jpg",
+      "thumbUrl": "https://images.stockx.com/images/Nike-Air-Max-95-OG-Neon-Yellow-2020-Product.jpg",
+      "source": "demo",
+      "url": "#"
+    },
+    {
+      "id": "demo_2",
+      "name": "Adidas Samba OG \"Cream\"",
+      "brand": "Adidas",
+      "sku": "IG6170",
+      "colorway": "Cream White/Gold",
+      "releaseDate": "2026-08-27",
+      "retailPrice": 100,
+      "retailPriceCNY": 710,
+      "imageUrl": "https://images.stockx.com/images/adidas-Samba-OG-Cream-White-Gold-Metallic-2023-Product.jpg",
+      "thumbUrl": "https://images.stockx.com/images/adidas-Samba-OG-Cream-White-Gold-Metallic-2023-Product.jpg",
+      "source": "demo",
+      "url": "#"
+    },
+    {
+      "id": "demo_3",
+      "name": "New Balance 1906R Protection Pack",
+      "brand": "New Balance",
+      "sku": "M1906RD",
+      "colorway": "Rain Cloud",
+      "releaseDate": "2026-09-03",
+      "retailPrice": 150,
+      "retailPriceCNY": 1065,
+      "imageUrl": "https://images.stockx.com/images/New-Balance-1906R-Protection-Pack-Rain-Cloud-Product.jpg",
+      "thumbUrl": "https://images.stockx.com/images/New-Balance-1906R-Protection-Pack-Rain-Cloud-Product.jpg",
+      "source": "demo",
+      "url": "#"
+    },
+    {
+      "id": "demo_4",
+      "name": "Jordan 4 Retro Military Blue 2024",
+      "brand": "Jordan",
+      "sku": "FV5029-141",
+      "colorway": "White/Military Blue",
+      "releaseDate": "2026-09-12",
+      "retailPrice": 210,
+      "retailPriceCNY": 1491,
+      "imageUrl": "https://images.stockx.com/images/Air-Jordan-4-Retro-Military-Blue-2024-Product.jpg",
+      "thumbUrl": "https://images.stockx.com/images/Air-Jordan-4-Retro-Military-Blue-2024-Product.jpg",
+      "source": "demo",
+      "url": "#"
+    },
+    {
+      "id": "demo_5",
+      "name": "ASICS Gel-Kayano 14 \"Cream\"",
+      "brand": "ASICS",
+      "sku": "1201A019-108",
+      "colorway": "Cream/Puce",
+      "releaseDate": "2026-09-27",
+      "retailPrice": 120,
+      "retailPriceCNY": 852,
+      "imageUrl": "https://images.stockx.com/images/Asics-Gel-Kayano-14-Cream-Puce-Product.jpg",
+      "thumbUrl": "https://images.stockx.com/images/Asics-Gel-Kayano-14-Cream-Puce-Product.jpg",
+      "source": "demo",
+      "url": "#"
+    }
+  ]
+}
