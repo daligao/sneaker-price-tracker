@@ -403,6 +403,12 @@
         "price": 1761,
         "source": "demo",
         "url": "#"
+      },
+      {
+        "date": "2026-10-18",
+        "price": 1863,
+        "source": "demo",
+        "url": "#"
       }
     ]
   },
@@ -810,6 +816,12 @@
         "price": 1767,
         "source": "demo",
         "url": "#"
+      },
+      {
+        "date": "2026-10-18",
+        "price": 1805,
+        "source": "demo",
+        "url": "#"
       }
     ]
   },
@@ -1215,6 +1227,12 @@
       {
         "date": "2026-10-17",
         "price": 1763,
+        "source": "demo",
+        "url": "#"
+      },
+      {
+        "date": "2026-10-18",
+        "price": 1853,
         "source": "demo",
         "url": "#"
       }
